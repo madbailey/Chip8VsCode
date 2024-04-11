@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.Intrinsics.X86;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Chip8Emulator
 {
@@ -9,13 +11,15 @@ namespace Chip8Emulator
         static void Main(string[] args)
         {
             CPU cpu = new CPU();
-            using (BinaryReader reader = new BinaryReader(new FileStream("ROMs/heart_monitor.ch8", FileMode.Open)))
-            {
-                List<ushort> program = new List<ushort>();
 
-                while (reader.BaseStream.Position != reader.BaseStream.Length - 1)
+            using (BinaryReader reader = new BinaryReader(new FileStream("ROMs/test_opcode.ch8", FileMode.Open)))
+            {
+                List<byte> program = new List<byte>();
+
+                while (reader.BaseStream.Position != reader.BaseStream.Length)
                 {
-                    program.Add((ushort)((reader.ReadByte() << 8) | reader.ReadByte()));
+                   // program.Add((byte)((reader.ReadByte() << 8) | reader.ReadByte()));
+                   program.Add(reader.ReadByte());
 
                 }
                 cpu.LoadProgram(program.ToArray());
@@ -26,6 +30,8 @@ namespace Chip8Emulator
                 //try
                 {
                     cpu.Step();
+                    //cpu.DrawDisplay();
+
                 }
                 /*catch (Exception e)
                 {
@@ -53,13 +59,12 @@ namespace Chip8Emulator
         public byte[] Display = new byte[64 * 32];
 
 
-        public void LoadProgram(ushort[] program)
+        public void LoadProgram(byte[] program)
         {
             RAM = new byte[4096];
             for (int i = 0; i < program.Length; i++)
             {
-                RAM[512 + i * 2] = (byte)((program[i] & 0xFF00) >> 8); // High byte
-                RAM[513 + i * 2] = (byte)((program[i] & 0x00FF)); // Low byte
+                RAM[512 + i] = program[i];
             }
             PC = 512;
         }
@@ -69,7 +74,7 @@ namespace Chip8Emulator
         public void Step()
         {
             var opcode = (ushort)(RAM[PC] << 8 | RAM[PC + 1]);
-            Console.WriteLine($"Executing opcode {opcode.ToString("X4")}");
+            //Console.WriteLine($"Executing opcode {opcode.ToString("X4")}");
 
             ushort opCodeNibble = (ushort)(opcode & 0xF000); // Extract the first 4 bits
 
@@ -197,6 +202,7 @@ namespace Chip8Emulator
                             Display[index] ^= pixel;
                         }
                     }
+                    DrawDisplay();
                     break;
                 case 0xE000:
                     int vxIndex = (opcode & 0x0F00) >> 8;
@@ -300,6 +306,24 @@ namespace Chip8Emulator
                     throw new Exception($"Unknown opcode {opcode.ToString("X4")}");
             }
         }
+        public void DrawDisplay()
+        {
+            StringBuilder sb = new StringBuilder(64 * 32 + 32); // +32 for new lines
+
+            for (int y = 0; y < 32; y++)
+            {
+                for (int x = 0; x < 64; x++)
+                {
+                    sb.Append(Display[x + y * 64] == 0 ? ' ' : '#');
+                }
+                sb.AppendLine(); // Adds a newline character
+            }
+
+            Console.SetCursorPosition(0, 0);
+            Console.Write(sb.ToString()); // Write the entire frame at once
+        }
+
 
     }
+
 }
