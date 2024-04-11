@@ -9,7 +9,7 @@ namespace Chip8Emulator
         static void Main(string[] args)
         {
             CPU cpu = new CPU();
-            using (BinaryReader reader = new BinaryReader(new FileStream("heart_monitor.ch8", FileMode.Open)))
+            using (BinaryReader reader = new BinaryReader(new FileStream("ROMs/heart_monitor.ch8", FileMode.Open)))
             {
                 List<ushort> program = new List<ushort>();
 
