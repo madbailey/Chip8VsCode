@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.Intrinsics.X86;
 using System.Security.Cryptography;
@@ -12,7 +13,7 @@ namespace Chip8Emulator
         {
             CPU cpu = new CPU();
 
-            using (BinaryReader reader = new BinaryReader(new FileStream("ROMs/test_opcode.ch8", FileMode.Open)))
+            using (BinaryReader reader = new BinaryReader(new FileStream("ROMs/TETRIS.ch8", FileMode.Open)))
             {
                 List<byte> program = new List<byte>();
 
@@ -71,10 +72,21 @@ namespace Chip8Emulator
 
         private Random generator = new Random(Environment.TickCount);
 
+        private Stopwatch watch = new Stopwatch();
+
         public void Step()
         {
             var opcode = (ushort)(RAM[PC] << 8 | RAM[PC + 1]);
-            //Console.WriteLine($"Executing opcode {opcode.ToString("X4")}");
+            WaitingForKeyPress = false;
+
+            if (!watch.IsRunning) watch.Start();
+            if (watch.ElapsedMilliseconds > 16)
+            {
+                if (DelayTimer > 0) DelayTimer--;
+                if (SoundTimer > 0) SoundTimer--;
+                watch.Restart();
+            }
+
 
             ushort opCodeNibble = (ushort)(opcode & 0xF000); // Extract the first 4 bits
 
@@ -116,9 +128,16 @@ namespace Chip8Emulator
                     }
                     break;
                 case 0x5000:
-                    if (Registers[(opcode & 0x0F00) >> 8] == Registers[(opcode & 0x00F0) >> 4]) // Vx == Vy
+                    if ((opcode & 0x000F) == 0) // Ensure it's the 0x5XY0 variant
                     {
-                        PC += 2;
+                        if (Registers[(opcode & 0x0F00) >> 8] == Registers[(opcode & 0x00F0) >> 4])
+                        {
+                            PC += 2; // Skip the next instruction
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception($"Unsupported variant of 0x5000 opcode: {opcode.ToString("X4")}");
                     }
                     break;
                 case 0x6000:
@@ -210,23 +229,15 @@ namespace Chip8Emulator
                     switch (opcode & 0x00FF)
                     {
                         case 0x009E:
-                            if (Keyboard[key] == true)
+                            if (Keyboard[key])
                             {
-                                PC += 4;
-                            }
-                            else
-                            {
-                                PC += 2;
+                                PC += 2; // Skip the next instruction
                             }
                             break;
                         case 0x00A1:
-                            if (Keyboard[key] == false)
+                            if (!Keyboard[key])
                             {
-                                PC += 4;
-                            }
-                            else
-                            {
-                                PC += 2;
+                                PC += 2; // Skip the next instruction
                             }
                             break;
                         default:
@@ -254,9 +265,12 @@ namespace Chip8Emulator
                             }
                             if (!keyPress)
                             {
+
+                                PC -= 2; // Repeat the same instruction on the next cycle
                                 return; // Pause execution until a key is pressed
+
                             }
-                            PC -= 2;
+                            
                             break;
                         case 0x0015: // FX15: Set delay timer = Vx
                             DelayTimer = Registers[vIndex];
