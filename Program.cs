@@ -1,4 +1,5 @@
-﻿using SDL2;
+﻿using Chip8;
+using SDL2;
 
 
 
@@ -8,6 +9,7 @@ namespace Chip8Emulator
     {
         static void Main(string[] args)
         {
+            Sound sound = new Sound();
             CPU cpu = new CPU();
             Input input = new Input();
 
@@ -19,6 +21,7 @@ namespace Chip8Emulator
 
             IntPtr window = SDL.SDL_CreateWindow("Chip-8 Emulator", SDL.SDL_WINDOWPOS_CENTERED, SDL.SDL_WINDOWPOS_CENTERED, 640, 320, SDL.SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
             Display display = new Display(window);
+            
 
             using (BinaryReader reader = new BinaryReader(new FileStream("ROMs/pumpkindressup.ch8", FileMode.Open)))
             {
@@ -32,8 +35,9 @@ namespace Chip8Emulator
                 }
                 cpu.LoadProgram(program.ToArray());
             }
-            bool running = true;
+        bool running = true;
         SDL.SDL_Event sdlEvent;
+
 
         while (running)
         {
@@ -46,8 +50,9 @@ namespace Chip8Emulator
 
             cpu.Step();
             display.Draw(cpu);
-        }
-
+            sound.PlayBloop(150, 1);
+            }
+        sound.Stop();
         display.Cleanup();
         SDL.SDL_DestroyWindow(window);
         SDL.SDL_Quit();
