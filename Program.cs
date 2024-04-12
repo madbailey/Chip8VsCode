@@ -23,7 +23,7 @@ namespace Chip8Emulator
             Display display = new Display(window);
             
 
-            using (BinaryReader reader = new BinaryReader(new FileStream("ROMs/pumpkindressup.ch8", FileMode.Open)))
+            using (BinaryReader reader = new BinaryReader(new FileStream("ROMs/BRIX.ch8", FileMode.Open)))
             {
                 List<byte> program = new List<byte>();
 
@@ -50,8 +50,7 @@ namespace Chip8Emulator
 
             cpu.Step();
             display.Draw(cpu);
-            sound.PlayBloop(150, 1);
-            }
+         }
         sound.Stop();
         display.Cleanup();
         SDL.SDL_DestroyWindow(window);

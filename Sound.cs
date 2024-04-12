@@ -25,8 +25,9 @@ namespace Chip8
 
         public void PlayBloop(double frequency, int duration)
         {
+            Console.WriteLine($"Playing sound: Frequency = {frequency}, Duration = {duration}");
             int sampleRate = audioSpec.freq;
-            int totalSamples = sampleRate * duration;
+            int totalSamples = (int)(sampleRate * duration / 1000.0);
             byte[] audioBuffer = new byte[totalSamples];
             double decayRate = 0.0001;
 
@@ -34,20 +35,30 @@ namespace Chip8
             {
                 double angle = 2.0 * Math.PI * i * frequency / sampleRate;
                 double amplitude = Math.Exp(-decayRate * i);
-                audioBuffer[i] = (byte)(128 + amplitude * Math.Sin(angle) * 127); // 8-bit centered on 128 (0-255)
+                audioBuffer[i] = (byte)(128 + amplitude * Math.Sin(angle) * 127);
             }
 
             GCHandle handle = GCHandle.Alloc(audioBuffer, GCHandleType.Pinned);
             IntPtr bufferHandle = handle.AddrOfPinnedObject();
-            SDL.SDL_QueueAudio(audioDevice, bufferHandle, (uint)audioBuffer.Length);
-            SDL.SDL_Delay((uint)(1000 * duration));  // Wait for the duration of the sound
-            handle.Free();  // Free the pinned memory
+            if (audioDevice != 0)
+            {
+                SDL.SDL_QueueAudio(audioDevice, bufferHandle, (uint)audioBuffer.Length);
+                Console.WriteLine("Audio queued successfully.");
+            }
+            else
+            {
+                Console.WriteLine("Invalid audio device.");
+            }
+            handle.Free(); 
         }
 
         public void Stop()
         {
-            SDL.SDL_CloseAudioDevice(audioDevice);
-            SDL.SDL_Quit();
+            if (audioDevice != 0)
+            {
+                SDL.SDL_ClearQueuedAudio(audioDevice);  // Clear the audio queue without closing the device
+            }
         }
+
     }
 }

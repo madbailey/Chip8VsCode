@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using Chip8;
+using System.Diagnostics;
 
 namespace Chip8Emulator
 {
@@ -30,6 +31,7 @@ namespace Chip8Emulator
         private Random generator = new Random(Environment.TickCount);
 
         private Stopwatch watch = new Stopwatch();
+        private Sound sound = new Sound();
 
         private void InitializeFont()
         {
@@ -72,6 +74,7 @@ namespace Chip8Emulator
                 Console.WriteLine($"Key released: {key}");
             }
         }
+        private bool isSoundPlaying = false;
         public void Step()
         {
             var opcode = (ushort)(RAM[PC] << 8 | RAM[PC + 1]);
@@ -81,11 +84,25 @@ namespace Chip8Emulator
             if (watch.ElapsedMilliseconds > 16)
             {
                 if (DelayTimer > 0) DelayTimer--;
-                if (SoundTimer > 0) SoundTimer--;
+                if (SoundTimer > 0)
+                {
+                    SoundTimer--;
+                    Console.WriteLine($"Sound Timer: {SoundTimer}");
+                    if (!isSoundPlaying)
+                    {
+                        Console.WriteLine("Playing sound...");
+                        sound.PlayBloop(128, 25);
+                        isSoundPlaying = true;
+                    }
+                }
+                else if (isSoundPlaying)
+                {
+                    Console.WriteLine("Stopping sound...");
+                    sound.Stop();
+                    isSoundPlaying = false;
+                }
                 watch.Restart();
             }
-
-
             ushort opCodeNibble = (ushort)(opcode & 0xF000); // Extract the first 4 bits
 
             PC += 2;
