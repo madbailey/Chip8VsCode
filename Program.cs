@@ -4,16 +4,48 @@ using System.IO;
 using System.Runtime.Intrinsics.X86;
 using System.Security.Cryptography;
 using System.Text;
+using SDL2;
+
+
 
 namespace Chip8Emulator
 {
     class Program
     {
+        
+
         static void Main(string[] args)
         {
+            Dictionary<SDL.SDL_Keycode, int> keyMap = new Dictionary<SDL.SDL_Keycode, int>
+            {
+                [SDL.SDL_Keycode.SDLK_1] = 0x1,
+                [SDL.SDL_Keycode.SDLK_2] = 0x2,
+                [SDL.SDL_Keycode.SDLK_3] = 0x3,
+                [SDL.SDL_Keycode.SDLK_4] = 0xC,
+                [SDL.SDL_Keycode.SDLK_q] = 0x4,
+                [SDL.SDL_Keycode.SDLK_w] = 0x5,
+                [SDL.SDL_Keycode.SDLK_e] = 0x6,
+                [SDL.SDL_Keycode.SDLK_r] = 0xD,
+                [SDL.SDL_Keycode.SDLK_a] = 0x7,
+                [SDL.SDL_Keycode.SDLK_s] = 0x8,
+                [SDL.SDL_Keycode.SDLK_d] = 0x9,
+                [SDL.SDL_Keycode.SDLK_f] = 0xE,
+                [SDL.SDL_Keycode.SDLK_z] = 0xA,
+                [SDL.SDL_Keycode.SDLK_x] = 0x0,
+                [SDL.SDL_Keycode.SDLK_c] = 0xB,
+                [SDL.SDL_Keycode.SDLK_v] = 0xF
+            };
+
             CPU cpu = new CPU();
 
-            using (BinaryReader reader = new BinaryReader(new FileStream("ROMs/TETRIS.ch8", FileMode.Open)))
+            if (SDL.SDL_Init(SDL.SDL_INIT_EVERYTHING) < 0 )
+            {
+                Console.WriteLine("SDL could not be initialized. SDL_Error: {0}", SDL.SDL_GetError());
+                return;
+            }
+            IntPtr window = SDL.SDL_CreateWindow("Chip-8 Emulator", SDL.SDL_WINDOWPOS_CENTERED, SDL.SDL_WINDOWPOS_CENTERED, 640, 320, SDL.SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
+
+            using (BinaryReader reader = new BinaryReader(new FileStream("ROMs/MISSILE.ch8", FileMode.Open)))
             {
                 List<byte> program = new List<byte>();
 
@@ -25,21 +57,69 @@ namespace Chip8Emulator
                 }
                 cpu.LoadProgram(program.ToArray());
             }
+            SDL.SDL_Event sdlEvent;
+            bool running = true;
+            IntPtr renderer = SDL.SDL_CreateRenderer(window, -1, SDL.SDL_RendererFlags.SDL_RENDERER_ACCELERATED);
 
-            while (true)
+            // Assuming each CHIP-8 pixel is represented as a 10x10 rectangle on our 640x320 window
+            int pixelWidth = 640 / 64;
+            int pixelHeight = 320 / 32;
+            SDL.SDL_Rect rect = new SDL.SDL_Rect();
+
+            while (running)
             {
-                //try
+                SDL.SDL_PollEvent(out sdlEvent);
+                if (sdlEvent.type == SDL.SDL_EventType.SDL_QUIT)
                 {
-                    cpu.Step();
-                    //cpu.DrawDisplay();
-
+                    running = false;
                 }
-                /*catch (Exception e)
+                else if (sdlEvent.type == SDL.SDL_EventType.SDL_KEYDOWN)
                 {
-                    Console.WriteLine(e.Message);
-                    break;
-                }*/
+                    if (keyMap.ContainsKey(sdlEvent.key.keysym.sym))
+                    {
+                        cpu.KeyPress(keyMap[sdlEvent.key.keysym.sym]);
+                    }
+                }
+                else if (sdlEvent.type == SDL.SDL_EventType.SDL_KEYUP)
+                {
+                    if (keyMap.ContainsKey(sdlEvent.key.keysym.sym))
+                    {
+                        cpu.KeyRelease(keyMap[sdlEvent.key.keysym.sym]);
+                    }
+                }
+
+                cpu.Step();
+
+                SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);  // Black background
+                SDL.SDL_RenderClear(renderer);
+
+                for (int y = 0; y < 32; y++)
+                {
+                    for (int x = 0; x < 64; x++)
+                    {
+                        if (cpu.Display[x + y * 64] == 1)  // Assuming the display is a flat array where 1 is white
+                        {
+                            SDL.SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White color for 'on' pixels
+                        }
+                        else
+                        {
+                            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Black color for 'off' pixels
+                        }
+
+                        rect.x = x * pixelWidth;
+                        rect.y = y * pixelHeight;
+                        rect.w = pixelWidth;
+                        rect.h = pixelHeight;
+                        SDL.SDL_RenderFillRect(renderer, ref rect);
+                    }
+                }
+
+                SDL.SDL_RenderPresent(renderer);
             }
+
+            SDL.SDL_DestroyRenderer(renderer);
+            SDL.SDL_DestroyWindow(window);
+            SDL.SDL_Quit();
 
 
         }
@@ -63,6 +143,7 @@ namespace Chip8Emulator
         public void LoadProgram(byte[] program)
         {
             RAM = new byte[4096];
+            InitializeFont();
             for (int i = 0; i < program.Length; i++)
             {
                 RAM[512 + i] = program[i];
@@ -74,6 +155,47 @@ namespace Chip8Emulator
 
         private Stopwatch watch = new Stopwatch();
 
+        private void InitializeFont()
+        {
+            byte[] fontData = new byte[]
+            {
+                0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+                0x20, 0x60, 0x20, 0x20, 0x70, // 1
+                0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+                0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+                0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+                0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+                0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+                0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+                0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+                0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+                0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+                0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+                0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+                0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+                0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+                0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+            };
+
+            Array.Copy(fontData, 0, RAM, 0, fontData.Length);       
+        }
+        public void KeyPress(int key)
+        {
+            if (key >= 0 && key < 16)
+            {
+                Keyboard[key] = true;
+                Console.WriteLine($"Key pressed: {key}");   
+            }
+        }
+
+        public void KeyRelease(int key)
+        {
+            if (key >= 0 && key < 16)
+            {
+                Keyboard[key] = false;
+                Console.WriteLine($"Key released: {key}");
+            }
+        }
         public void Step()
         {
             var opcode = (ushort)(RAM[PC] << 8 | RAM[PC + 1]);
@@ -221,7 +343,7 @@ namespace Chip8Emulator
                             Display[index] ^= pixel;
                         }
                     }
-                    DrawDisplay();
+               
                     break;
                 case 0xE000:
                     int vxIndex = (opcode & 0x0F00) >> 8;
@@ -253,17 +375,18 @@ namespace Chip8Emulator
                             break;
                         case 0x000A: // FX0A: Wait for a key press, store the value of the key in Vx
                             // Implementation depends on your input handling
-                            bool keyPress = false;
+                            WaitingForKeyPress = true;
                             for (int i = 0; i < Keyboard.Length; i++)
                             {
                                 if (Keyboard[i])
                                 {
-                                    Registers[vIndex] = (byte)i;
-                                    keyPress = true;
+                                    Registers[(opcode & 0x0F00) >> 8] = (byte)i;
+                                    WaitingForKeyPress = false;
+                                    Console.WriteLine($"Key pressed: {i}"); 
                                     break;
                                 }
                             }
-                            if (!keyPress)
+                            if (WaitingForKeyPress)
                             {
 
                                 PC -= 2; // Repeat the same instruction on the next cycle
@@ -319,22 +442,6 @@ namespace Chip8Emulator
                 default:
                     throw new Exception($"Unknown opcode {opcode.ToString("X4")}");
             }
-        }
-        public void DrawDisplay()
-        {
-            StringBuilder sb = new StringBuilder(64 * 32 + 32); // +32 for new lines
-
-            for (int y = 0; y < 32; y++)
-            {
-                for (int x = 0; x < 64; x++)
-                {
-                    sb.Append(Display[x + y * 64] == 0 ? ' ' : '#');
-                }
-                sb.AppendLine(); // Adds a newline character
-            }
-
-            Console.SetCursorPosition(0, 0);
-            Console.Write(sb.ToString()); // Write the entire frame at once
         }
 
 
